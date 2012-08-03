@@ -1,7 +1,7 @@
 fake-referer
 ============
 
-`fake-referer` is utility for massive creating fake referer www-requests.
+`fake-referer` is utility for making massive www-requests with fake referer.
 
 Status
 ------

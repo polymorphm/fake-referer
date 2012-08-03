@@ -36,7 +36,7 @@ def final():
 
 def main():
     parser = argparse.ArgumentParser(
-            description=u'utility for massive creating fake referer www-requests.')
+            description=u'utility for making massive www-requests with fake referer.')
     parser.add_argument('cfg', metavar='CONFIG-FILE',
             help=u'config file for task process')
     
