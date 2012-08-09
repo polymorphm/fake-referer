@@ -20,7 +20,7 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import argparse, ConfigParser, os.path
+import argparse, ConfigParser, sys, os.path
 from tornado import ioloop
 from .fake_referer import fake_referer
 
@@ -47,7 +47,7 @@ def main():
     cfg = Config()
     
     cfg_section = 'fake-referer'
-    cfg_dir = os.path.dirname(args.cfg)
+    cfg_dir = os.path.dirname(args.cfg).decode(sys.getfilesystemencoding())
     
     cfg.site_items = os.path.join(
                 cfg_dir,
