@@ -20,18 +20,20 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import os, os.path, itertools, random
+import sys, os, os.path, itertools, random
 
 class NotFoundError(IOError):
     pass
 
 def file_items_open(path):
+    assert isinstance(path, unicode)
+    
     with open(path, 'rb') as fd:
         for line in fd:
             if not line:
                 continue
             
-            item = line.strip()
+            item = line.decode('utf-8', 'replace').strip()
             
             if not item:
                 continue
@@ -39,8 +41,12 @@ def file_items_open(path):
             yield item
 
 def dir_items_open(path):
+    assert isinstance(path, unicode)
+    
     for name in os.listdir(path):
-        file_path = os.path.join(path, name)
+        uname = name.decode(sys.getfilesystemencoding(), 'replace')
+        
+        file_path = os.path.join(path, uname)
         
         if not file_path.endswith('.txt'):
             continue
@@ -51,7 +57,7 @@ def dir_items_open(path):
             if not data:
                 continue
             
-            item = data.strip()
+            item = data.decode('utf-8', 'replace').strip()
             
             if not item:
                 continue
