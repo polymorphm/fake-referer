@@ -21,19 +21,19 @@ assert unicode is not str
 assert str is bytes
 
 import sys, functools, threading
-import tornado.ioloop, tornado.stack_context
+from tornado import ioloop, stack_context
 
 def daemon_async(func):
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         callback = kwargs.pop('callback', None)
         use_raise = kwargs.pop('use_raise', None)
-        callback = tornado.stack_context.wrap(callback)
+        callback = stack_context.wrap(callback)
         
         if use_raise is None:
             use_raise = True
         
-        @tornado.stack_context.wrap
+        @stack_context.wrap
         def on_result(result, exc):
             if exc is not None:
                 type, value, traceback = exc
@@ -56,7 +56,7 @@ def daemon_async(func):
             except Exception:
                 exc = sys.exc_info()
             
-            tornado.ioloop.IOLoop.instance().add_callback(
+            ioloop.IOLoop.instance().add_callback(
                     functools.partial(on_result, result, exc))
         
         thread = threading.Thread(target=daemon)
