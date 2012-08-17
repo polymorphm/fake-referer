@@ -44,9 +44,7 @@ def dir_items_open(path):
     assert isinstance(path, unicode)
     
     for name in os.listdir(path):
-        uname = name.decode(sys.getfilesystemencoding(), 'replace')
-        
-        file_path = os.path.join(path, uname)
+        file_path = os.path.join(path, name)
         
         if not file_path.endswith('.txt'):
             continue
