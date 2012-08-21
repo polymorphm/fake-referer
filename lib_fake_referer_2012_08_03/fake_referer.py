@@ -27,6 +27,15 @@ from . import get_items, async_http_request_helper
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
 
+def url_normalize(url):
+    if url.startswith('http:') or url.startswith('https:'):
+        return url
+    
+    if url.startswith('//'):
+        return 'http:%s' % url
+    
+    return 'http://%s' % url
+
 @gen.engine
 def fake_referer_thread(site_iter, referer_iter,
             delay=None, on_finish=None):
@@ -90,14 +99,29 @@ def fake_referer(cfg, on_finish=None):
     on_finish = stack_context.wrap(on_finish)
     
     if cfg.count == 'infinite':
-        site_iter = get_items.get_random_infinite_items(cfg.site_items)
+        site_iter = itertools.imap(
+                url_normalize,
+                get_items.get_random_infinite_items(cfg.site_items),
+                )
     elif cfg.count is not None:
         count = int(cfg.count)
-        site_iter = itertools.islice(get_items.get_random_infinite_items(cfg.site_items), count)
+        site_iter = itertools.imap(
+                url_normalize,
+                itertools.islice(
+                        get_items.get_random_infinite_items(cfg.site_items),
+                        count,
+                        ),
+                )
     else:
-        site_iter = get_items.get_random_finite_items(cfg.site_items)
+        site_iter = itertools.imap(
+                url_normalize,
+                get_items.get_random_finite_items(cfg.site_items),
+                )
     
-    referer_iter = get_items.get_random_infinite_items(cfg.referer_items)
+    referer_iter = itertools.imap(
+            url_normalize,
+            get_items.get_random_infinite_items(cfg.referer_items),
+            )
     
     bulk_fake_referer(site_iter, referer_iter,
             conc=cfg.conc, delay=cfg.delay,
