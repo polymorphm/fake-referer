@@ -63,6 +63,8 @@ def main():
             if config.has_option(cfg_section, 'conc') else None
     cfg.delay = float(config.get(cfg_section, 'delay').decode('utf-8', 'replace')) \
             if config.has_option(cfg_section, 'delay') else None
+    cfg.verbose = int(config.get(cfg_section, 'verbose').decode('utf-8', 'replace')) \
+            if config.has_option(cfg_section, 'verbose') else None
     
     if cfg.site_items is None:
         raise UserError('cfg.site_items is None')

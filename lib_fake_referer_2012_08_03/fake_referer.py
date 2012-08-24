@@ -38,9 +38,11 @@ def url_normalize(url):
 
 @gen.engine
 def fake_referer_thread(site_iter, referer_iter,
-            delay=None, on_finish=None):
+            delay=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
+    if verbose is None:
+        verbose = 0
     on_finish = stack_context.wrap(on_finish)
     
     if delay is None:
@@ -49,7 +51,8 @@ def fake_referer_thread(site_iter, referer_iter,
     for site in site_iter:
         referer = next(referer_iter)
         
-        print '%s (<- %s): opening...' % (site, referer)
+        if verbose >= 1:
+            print '%s (<- %s): opening...' % (site, referer)
         
         if delay:
             yield gen.Task(
@@ -65,16 +68,18 @@ def fake_referer_thread(site_iter, referer_iter,
                 ))[0]
         
         if exc is None:
-            print '%s (<- %s): PASS' % (site, referer)
+            if verbose >= 1:
+                print '%s (<- %s): PASS' % (site, referer)
         else:
-            print '%s (<- %s): ERROR: %s' % (site, referer, exc[1])
+            if verbose >= 1:
+                print '%s (<- %s): ERROR: %s' % (site, referer, exc[1])
     
     if on_finish is not None:
         on_finish()
 
 @gen.engine
 def bulk_fake_referer(site_iter, referer_iter,
-            conc=None, delay=None, on_finish=None):
+            conc=None, delay=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
     on_finish = stack_context.wrap(on_finish)
@@ -86,7 +91,7 @@ def bulk_fake_referer(site_iter, referer_iter,
     
     for wait_key in wait_key_list:
         fake_referer_thread(site_iter, referer_iter,
-                delay=delay,
+                delay=delay, verbose=verbose,
                 on_finish=(yield gen.Callback(wait_key)))
     
     for wait_key in wait_key_list:
@@ -124,5 +129,5 @@ def fake_referer(cfg, on_finish=None):
             )
     
     bulk_fake_referer(site_iter, referer_iter,
-            conc=cfg.conc, delay=cfg.delay,
+            conc=cfg.conc, delay=cfg.delay, verbose=cfg.verbose,
             on_finish=on_finish)
