@@ -96,6 +96,7 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
     def cbRequest(response):
         resp = Response()
         resp.code = response.code
+        resp.headers = response.headers
         
         finished = Deferred()
         response.deliverBody(TwDeliverBody(resp, finished, limit=limit))

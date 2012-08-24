@@ -20,7 +20,7 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import itertools, base64, json, datetime
+import itertools, base64, json, datetime, urlparse
 from tornado import ioloop, stack_context, gen
 from . import get_items, async_fetch
 
@@ -50,33 +50,51 @@ def fake_referer_thread(site_iter, referer_iter,
         verbose = DEFAULT_VERBOSE
     
     for site in site_iter:
-        referer = next(referer_iter)
-        
-        if verbose >= 1:
-            print u'%s (<- %s): opening...' % (site, referer)
-        
         if delay:
             yield gen.Task(
                     ioloop.IOLoop.instance().add_timeout,
                     datetime.timedelta(seconds=delay),
                     )
         
-        response, exc = (yield gen.Task(
-                async_fetch.async_fetch,
-                site,
-                header_map={'Referer': [referer.encode('utf-8', 'replace')]},
-                limit=100,
-                ))[0]
+        referer = next(referer_iter)
         
-        if exc is None and response.code != 200:
+        for redirect_lvl in xrange(20):
             if verbose >= 1:
-                print u'%s (<- %s): WARN (code is %s)' % (site, referer, response.code)
-        elif exc is None:
+                if redirect_lvl:
+                    print u'%s (<- %s): opening... (redirecting level %s)' % (
+                            site, referer, redirect_lvl)
+                else:
+                    print u'%s (<- %s): opening...' % (site, referer)
+            
+            response, exc = (yield gen.Task(
+                    async_fetch.async_fetch,
+                    site,
+                    header_map={'Referer': [referer.encode('utf-8', 'replace')]},
+                    limit=100,
+                    ))[0]
+            
+            if exc is not None:
+                if verbose >= 1:
+                    print u'%s (<- %s): ERROR: %s' % (site, referer, exc[1])
+                break
+            
+            if not response.code or response.code == 200:
+                if verbose >= 1:
+                    print u'%s (<- %s): PASS' % (site, referer)
+                break
+            
+            location_h = response.headers.getRawHeaders('Location', default=())
+            
+            if not location_h or response.code < 300 or response.code >= 400:
+                if verbose >= 1:
+                    print u'%s (<- %s): WARN (code is %s)' % (site, referer, response.code)
+                break
+            
+            new_site = urlparse.urljoin(site, location_h[0].decode('utf-8'))
             if verbose >= 1:
-                print u'%s (<- %s): PASS' % (site, referer)
-        else:
-            if verbose >= 1:
-                print u'%s (<- %s): ERROR: %s' % (site, referer, exc[1])
+                print u'%s (<- %s): redirecting to %s (code is %s)...' % (
+                        site, referer, new_site, response.code)
+            site = new_site
     
     if on_finish is not None:
         on_finish()

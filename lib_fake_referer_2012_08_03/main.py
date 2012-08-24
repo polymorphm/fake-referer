@@ -45,7 +45,7 @@ def sig_lst_thread_join(thread):
     #       but only on Python2, not Python3
     
     while thread.is_alive():
-        thread.join(timeout=7200.0)
+        thread.join(timeout=120.0)
 
 def reactor_stop():
     def reactor_target():
