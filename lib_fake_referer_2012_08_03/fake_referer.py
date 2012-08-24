@@ -26,6 +26,7 @@ from . import get_items, async_http_request_helper
 
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
+DEFAULT_VERBOSE = 0
 
 def url_normalize(url):
     if url.startswith('http:') or url.startswith('https:'):
@@ -41,18 +42,18 @@ def fake_referer_thread(site_iter, referer_iter,
             delay=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
-    if verbose is None:
-        verbose = 0
     on_finish = stack_context.wrap(on_finish)
     
     if delay is None:
         delay = DEFAULT_DELAY
+    if verbose is None:
+        verbose = DEFAULT_VERBOSE
     
     for site in site_iter:
         referer = next(referer_iter)
         
         if verbose >= 1:
-            print '%s (<- %s): opening...' % (site, referer)
+            print u'%s (<- %s): opening...' % (site, referer)
         
         if delay:
             yield gen.Task(
@@ -69,10 +70,10 @@ def fake_referer_thread(site_iter, referer_iter,
         
         if exc is None:
             if verbose >= 1:
-                print '%s (<- %s): PASS' % (site, referer)
+                print u'%s (<- %s): PASS' % (site, referer)
         else:
             if verbose >= 1:
-                print '%s (<- %s): ERROR: %s' % (site, referer, exc[1])
+                print u'%s (<- %s): ERROR: %s' % (site, referer, exc[1])
     
     if on_finish is not None:
         on_finish()

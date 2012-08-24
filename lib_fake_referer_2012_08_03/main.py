@@ -20,9 +20,11 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import argparse, ConfigParser, sys, os.path, functools
+import argparse, ConfigParser, sys, os.path, \
+        contextlib, signal, functools, threading
 from tornado import ioloop
-from .fake_referer import fake_referer
+from twisted.internet import reactor, error as tw_error
+from . import fake_referer
 
 class UserError(Exception):
     pass
@@ -30,10 +32,55 @@ class UserError(Exception):
 class Config(object):
     pass
 
-def final(verbose):
+@contextlib.contextmanager
+def set_signal_listener(signalnum, handler):
+    orig_handler = signal.signal(signalnum, handler)
+    try:
+        yield
+    finally:
+        signal.signal(signalnum, orig_handler)
+
+def sig_lst_thread_join(thread):
+    # if ``timeout`` not setted (at least any value), then ``join()`` has behavior bug.
+    #       but only on Python2, not Python3
+    
+    while thread.is_alive():
+        thread.join(timeout=7200.0)
+
+def reactor_stop():
+    def reactor_target():
+        try:
+            reactor.stop()
+        except tw_error.ReactorNotRunning:
+            pass
+    
+    reactor.callFromThread(reactor_target)
+
+def on_done(verbose=None):
+    if verbose is None:
+        verbose = fake_referer.DEFAULT_VERBOSE
+    
     if verbose >= 1:
-        print(u'done!')
+        print u'done!'
+    
+    reactor_stop()
     ioloop.IOLoop.instance().stop()
+
+def on_interrupt_sig(signum, frame, verbose=None):
+    if verbose is None:
+        verbose = fake_referer.DEFAULT_VERBOSE
+    
+    def loop_target():
+        if verbose >= 1:
+            print u'interrupted!'
+        
+        ioloop.IOLoop.instance().stop()
+    
+    def sig_target():
+        reactor_stop()
+        ioloop.IOLoop.instance().add_callback(loop_target)
+    
+    threading.Thread(target=sig_target).start()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -72,6 +119,21 @@ def main():
     if cfg.referer_items is None:
         raise UserError('cfg.referer_items is None')
     
-    fake_referer(cfg, on_finish=functools.partial(final, cfg.verbose))
+    io_loop = ioloop.IOLoop.instance()
     
-    ioloop.IOLoop.instance().start()
+    io_loop.add_callback(functools.partial(fake_referer.fake_referer, cfg,
+            on_finish=functools.partial(on_done, verbose=cfg.verbose)))
+    
+    with set_signal_listener(signal.SIGINT, functools.partial(
+                    on_interrupt_sig, verbose=cfg.verbose)), \
+            set_signal_listener(signal.SIGTERM, functools.partial(
+                    on_interrupt_sig, verbose=cfg.verbose)):
+        loop_thr = threading.Thread(target=io_loop.start)
+        reactor_thr = threading.Thread(target=reactor.run,
+                kwargs={'installSignalHandlers': False})
+        
+        loop_thr.start()
+        reactor_thr.start()
+        
+        sig_lst_thread_join(reactor_thr)
+        sig_lst_thread_join(loop_thr)
