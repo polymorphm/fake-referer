@@ -20,7 +20,7 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import argparse, ConfigParser, sys, os.path
+import argparse, ConfigParser, sys, os.path, functools
 from tornado import ioloop
 from .fake_referer import fake_referer
 
@@ -30,8 +30,9 @@ class UserError(Exception):
 class Config(object):
     pass
 
-def final():
-    print(u'done!')
+def final(verbose):
+    if verbose >= 1:
+        print(u'done!')
     ioloop.IOLoop.instance().stop()
 
 def main():
@@ -71,6 +72,6 @@ def main():
     if cfg.referer_items is None:
         raise UserError('cfg.referer_items is None')
     
-    fake_referer(cfg, on_finish=final)
+    fake_referer(cfg, on_finish=functools.partial(final, cfg.verbose))
     
     ioloop.IOLoop.instance().start()
