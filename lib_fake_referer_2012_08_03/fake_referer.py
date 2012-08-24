@@ -38,7 +38,7 @@ def url_normalize(url):
     return 'http://%s' % url
 
 @gen.engine
-def fake_referer_thread(site_iter, referer_iter,
+def fake_referer_thread(redir_cache, site_iter, referer_iter,
             delay=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
@@ -59,6 +59,10 @@ def fake_referer_thread(site_iter, referer_iter,
         referer = next(referer_iter)
         
         for redirect_lvl in xrange(20):
+            if site in redir_cache:
+                site = redir_cache[site]
+                continue
+            
             if verbose >= 1:
                 if redirect_lvl:
                     print u'%s (<- %s): opening... (redirecting level %s)' % (
@@ -79,6 +83,7 @@ def fake_referer_thread(site_iter, referer_iter,
                 break
             
             if not response.code or response.code == 200:
+                
                 if verbose >= 1:
                     print u'%s (<- %s): PASS' % (site, referer)
                 break
@@ -91,16 +96,18 @@ def fake_referer_thread(site_iter, referer_iter,
                 break
             
             new_site = urlparse.urljoin(site, location_h[0].decode('utf-8'))
+            redir_cache[site] = new_site
             if verbose >= 1:
                 print u'%s (<- %s): redirecting to %s (code is %s)...' % (
                         site, referer, new_site, response.code)
+            
             site = new_site
     
     if on_finish is not None:
         on_finish()
 
 @gen.engine
-def bulk_fake_referer(site_iter, referer_iter,
+def bulk_fake_referer(redir_cache, site_iter, referer_iter,
             conc=None, delay=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
@@ -112,7 +119,7 @@ def bulk_fake_referer(site_iter, referer_iter,
     wait_key_list = tuple(object() for x in xrange(conc))
     
     for wait_key in wait_key_list:
-        fake_referer_thread(site_iter, referer_iter,
+        fake_referer_thread(redir_cache, site_iter, referer_iter,
                 delay=delay, verbose=verbose,
                 on_finish=(yield gen.Callback(wait_key)))
     
@@ -150,6 +157,8 @@ def fake_referer(cfg, on_finish=None):
             get_items.get_random_infinite_items(cfg.referer_items),
             )
     
-    bulk_fake_referer(site_iter, referer_iter,
+    redir_cache = {}
+    
+    bulk_fake_referer(redir_cache, site_iter, referer_iter,
             conc=cfg.conc, delay=cfg.delay, verbose=cfg.verbose,
             on_finish=on_finish)
