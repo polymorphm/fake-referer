@@ -85,13 +85,14 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
     else:
         method = 'GET'
     
-    if header_map is not None:
-        headers = Headers(header_map)
-    else:
-        headers = None
+    init_header_map = {
+        'User-Agent': ['Twisted Web Client'],
+    }
+    init_header_map.update(header_map)
+    headers = Headers(init_header_map)
     
     agent = Agent(reactor, connectTimeout=timeout)
-    d = agent.request(method, url, headers=Headers(header_map))
+    d = agent.request(method, url, headers=headers)
     
     def cbRequest(response):
         resp = Response()
