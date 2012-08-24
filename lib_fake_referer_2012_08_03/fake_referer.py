@@ -22,7 +22,7 @@ assert str is bytes
 
 import itertools, base64, json, datetime
 from tornado import ioloop, stack_context, gen
-from . import get_items, async_http_request_helper
+from . import get_items, async_fetch
 
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
@@ -62,13 +62,16 @@ def fake_referer_thread(site_iter, referer_iter,
                     )
         
         response, exc = (yield gen.Task(
-                async_http_request_helper.async_fetch,
+                async_fetch.async_fetch,
                 site,
-                header_list=(('Referer', referer), ),
-                use_raise=False,
+                header_map={'Referer': [referer.encode('utf-8', 'replace')]},
+                limit=100,
                 ))[0]
         
-        if exc is None:
+        if exc is None and response.code != 200:
+            if verbose >= 1:
+                print u'%s (<- %s): WARN (code is %s)' % (site, referer, response.code)
+        elif exc is None:
             if verbose >= 1:
                 print u'%s (<- %s): PASS' % (site, referer)
         else:
