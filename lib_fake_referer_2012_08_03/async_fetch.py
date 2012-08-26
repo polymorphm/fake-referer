@@ -121,6 +121,8 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
                         exc,
                         ))
         d.addBoth(cbLoopFinally)
+    
+    return d
 
 @gen.engine
 def async_fetch(url, data=None, header_map=None, use_json=None,
