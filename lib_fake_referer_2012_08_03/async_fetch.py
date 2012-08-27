@@ -76,10 +76,20 @@ def tw_get_pool():
     
     return pool
 
-def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
+def tw_get_agent():
+    try:
+        agent = _local.agent
+    except AttributeError:
+        agent = _local.agent = client.Agent(
+                reactor,
+                connectTimeout=DEFAULT_TIMEOUT,
+                pool=tw_get_pool(),
+                )
+    
+    return agent
+
+def tw_async_fetch(url, data=None, header_map=None, limit=None,
         use_loop=None, callback=None):
-    if timeout is None:
-        timeout = DEFAULT_TIMEOUT
     if use_loop is None:
         use_loop = False
     
@@ -98,7 +108,7 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
     init_header_map.update(header_map)
     headers = http_headers.Headers(init_header_map)
     
-    agent = client.Agent(reactor, connectTimeout=timeout, pool=tw_get_pool())
+    agent = tw_get_agent()
     d = agent.request(method, url, headers=headers)
     
     def cbRequest(response):
@@ -133,7 +143,7 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
 
 @gen.engine
 def async_fetch(url, data=None, header_map=None, use_json=None,
-        limit=None, timeout=None, callback=None):
+        limit=None, callback=None):
     callback = stack_context.wrap(callback)
     
     if isinstance(data, dict):
@@ -148,7 +158,6 @@ def async_fetch(url, data=None, header_map=None, use_json=None,
             data=data,
             header_map=header_map,
             limit=limit,
-            timeout=timeout,
             use_loop=True,
             ))[0]
     
