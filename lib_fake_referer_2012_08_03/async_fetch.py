@@ -61,12 +61,13 @@ class TwDeliverBody(object):
                 transport.stopProducing()
     
     def connectionLost(self, reason):
+        self._transport = None
         self._finished.callback(self._response)
     
     def makeConnection(self, transport):
         self._transport = transport
     
-    def connectionMade():
+    def connectionMade(self):
         pass
 
 def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
