@@ -20,25 +20,23 @@ from __future__ import absolute_import
 assert unicode is not str
 assert str is bytes
 
-import functools
+import functools, threading
 from tornado import ioloop, stack_context, gen
-from zope.interface import implements
-from twisted.internet import reactor
-from twisted.python.failure import Failure
-from twisted.internet.defer import Deferred
-from twisted.internet.protocol import Protocol
-from twisted.web.client import Agent
-from twisted.web.http_headers import Headers
-from twisted.internet.interfaces import IProtocol
+from zope import interface
+from twisted.internet import reactor, defer, interfaces
+from twisted.python import failure
+from twisted.web import client, http_headers
 
 DEFAULT_TIMEOUT = 20.0
 DEFAULT_LIMIT = 10000000
+
+_local = threading.local()
 
 class Response:
     pass
 
 class TwDeliverBody(object):
-    implements(IProtocol)
+    interface.implements(interfaces.IProtocol)
     
     def __init__(self, response, finished, limit=None):
         if limit is None:
@@ -70,6 +68,14 @@ class TwDeliverBody(object):
     def connectionMade(self):
         pass
 
+def tw_get_pool():
+    try:
+        pool = _local.pool
+    except AttributeError:
+        pool = _local.pool = client.HTTPConnectionPool(reactor)
+    
+    return pool
+
 def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
         use_loop=None, callback=None):
     if timeout is None:
@@ -90,9 +96,9 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
         'User-Agent': ['Twisted Web Client'],
     }
     init_header_map.update(header_map)
-    headers = Headers(init_header_map)
+    headers = http_headers.Headers(init_header_map)
     
-    agent = Agent(reactor, connectTimeout=timeout)
+    agent = client.Agent(reactor, connectTimeout=timeout, pool=tw_get_pool())
     d = agent.request(method, url, headers=headers)
     
     def cbRequest(response):
@@ -100,7 +106,7 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
         resp.code = response.code
         resp.headers = response.headers
         
-        finished = Deferred()
+        finished = defer.Deferred()
         response.deliverBody(TwDeliverBody(resp, finished, limit=limit))
         return finished
     d.addCallback(cbRequest)
@@ -110,7 +116,7 @@ def tw_async_fetch(url, data=None, header_map=None, limit=None, timeout=None,
             response = None
             exc = None
             
-            if isinstance(arg, Failure):
+            if isinstance(arg, failure.Failure):
                 exc = arg.type, arg.value, arg.getTracebackObject()
             else:
                 response = arg
