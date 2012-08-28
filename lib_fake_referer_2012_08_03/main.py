@@ -99,6 +99,8 @@ def main():
             if config.has_option(cfg_section, 'conc') else None
     cfg.delay = float(config.get(cfg_section, 'delay').decode('utf-8', 'replace')) \
             if config.has_option(cfg_section, 'delay') else None
+    cfg.agent_name = config.get(cfg_section, 'agent-name').decode('utf-8', 'replace') \
+            if config.has_option(cfg_section, 'agent-name') else None
     cfg.verbose = int(config.get(cfg_section, 'verbose').decode('utf-8', 'replace')) \
             if config.has_option(cfg_section, 'verbose') else None
     

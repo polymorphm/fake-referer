@@ -39,7 +39,7 @@ def url_normalize(url):
 
 @gen.engine
 def fake_referer_thread(site_iter, referer_iter,
-            delay=None, verbose=None, on_finish=None):
+            delay=None, agent_name=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
     on_finish = stack_context.wrap(on_finish)
@@ -61,12 +61,17 @@ def fake_referer_thread(site_iter, referer_iter,
         if verbose >= 1:
             print u'%s (<- %s): opening...' % (site, referer)
         
+        header_list = [
+            ('Referer', referer),
+        ]
+        
+        if agent_name is not None:
+            header_list.append(('User-agent', agent_name))
+        
         response, exc = (yield gen.Task(
                 async_http_request_helper.async_fetch,
                 site,
-                header_list=(
-                    ('Referer', referer),
-                ),
+                header_list=header_list,
                 limit=100,
                 ))[0]
             
@@ -88,7 +93,7 @@ def fake_referer_thread(site_iter, referer_iter,
 
 @gen.engine
 def bulk_fake_referer(site_iter, referer_iter,
-            conc=None, delay=None, verbose=None, on_finish=None):
+            conc=None, delay=None, agent_name=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
     on_finish = stack_context.wrap(on_finish)
@@ -100,7 +105,7 @@ def bulk_fake_referer(site_iter, referer_iter,
     
     for wait_key in wait_key_list:
         fake_referer_thread(site_iter, referer_iter,
-                delay=delay, verbose=verbose,
+                delay=delay, agent_name=agent_name, verbose=verbose,
                 on_finish=(yield gen.Callback(wait_key)))
     
     for wait_key in wait_key_list:
@@ -137,6 +142,12 @@ def fake_referer(cfg, on_finish=None):
             get_items.get_random_infinite_items(cfg.referer_items),
             )
     
-    bulk_fake_referer(site_iter, referer_iter,
-            conc=cfg.conc, delay=cfg.delay, verbose=cfg.verbose,
-            on_finish=on_finish)
+    bulk_fake_referer(
+            site_iter,
+            referer_iter,
+            conc=cfg.conc,
+            delay=cfg.delay,
+            agent_name=cfg.agent_name,
+            verbose=cfg.verbose,
+            on_finish=on_finish,
+            )
