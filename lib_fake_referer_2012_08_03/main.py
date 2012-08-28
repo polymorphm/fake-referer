@@ -23,7 +23,6 @@ assert str is bytes
 import argparse, ConfigParser, sys, os.path, \
         contextlib, signal, functools, threading
 from tornado import ioloop
-from twisted.internet import reactor, error as tw_error
 from . import fake_referer
 
 class UserError(Exception):
@@ -47,15 +46,6 @@ def sig_lst_thread_join(thread):
     while thread.is_alive():
         thread.join(timeout=120.0)
 
-def reactor_stop():
-    def reactor_target():
-        try:
-            reactor.stop()
-        except tw_error.ReactorNotRunning:
-            pass
-    
-    reactor.callFromThread(reactor_target)
-
 def on_done(verbose=None):
     if verbose is None:
         verbose = fake_referer.DEFAULT_VERBOSE
@@ -63,7 +53,6 @@ def on_done(verbose=None):
     if verbose >= 1:
         print u'done!'
     
-    reactor_stop()
     ioloop.IOLoop.instance().stop()
 
 def on_interrupt_sig(signum, frame, verbose=None):
@@ -77,7 +66,6 @@ def on_interrupt_sig(signum, frame, verbose=None):
         ioloop.IOLoop.instance().stop()
     
     def sig_target():
-        reactor_stop()
         ioloop.IOLoop.instance().add_callback(loop_target)
     
     threading.Thread(target=sig_target).start()
@@ -129,11 +117,7 @@ def main():
             set_signal_listener(signal.SIGTERM, functools.partial(
                     on_interrupt_sig, verbose=cfg.verbose)):
         loop_thr = threading.Thread(target=io_loop.start)
-        reactor_thr = threading.Thread(target=reactor.run,
-                kwargs={'installSignalHandlers': False})
         
         loop_thr.start()
-        reactor_thr.start()
         
-        sig_lst_thread_join(reactor_thr)
         sig_lst_thread_join(loop_thr)
