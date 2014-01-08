@@ -34,7 +34,7 @@ def url_normalize(url):
     
     return 'http://%s' % url
 
-@gen.engine
+@gen.coroutine
 def fake_referer_thread(site_iter, referer_iter,
             delay=None, agent_name=None, verbose=None, on_finish=None):
     site_iter = iter(site_iter)
@@ -50,9 +50,10 @@ def fake_referer_thread(site_iter, referer_iter,
         referer = next(referer_iter)
         
         if delay:
-            yield gen.Task(
-                    ioloop.IOLoop.instance().add_timeout,
+            delay_wait_key = object()
+            ioloop.IOLoop.instance().add_timeout(
                     datetime.timedelta(seconds=delay),
+                    callback=(yield gen.Callback(delay_wait_key)),
                     )
         
         if verbose >= 1:
@@ -84,6 +85,9 @@ def fake_referer_thread(site_iter, referer_iter,
         
         if verbose >= 1:
             print('%s (<- %s): PASS' % (site, referer))
+        
+        if delay:
+            yield gen.Wait(delay_wait_key)
     
     if on_finish is not None:
         on_finish()
