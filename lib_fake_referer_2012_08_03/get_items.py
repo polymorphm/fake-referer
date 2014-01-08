@@ -15,9 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 
-assert unicode is not str
+
+assert str is not str
 assert str is bytes
 
 import sys, os, os.path, itertools, random
@@ -26,7 +26,7 @@ class NotFoundError(IOError):
     pass
 
 def file_items_open(path):
-    assert isinstance(path, unicode)
+    assert isinstance(path, str)
     
     with open(path, 'rb') as fd:
         for line in fd:
@@ -41,7 +41,7 @@ def file_items_open(path):
             yield item
 
 def dir_items_open(path):
-    assert isinstance(path, unicode)
+    assert isinstance(path, str)
     
     for name in os.listdir(path):
         file_path = os.path.join(path, name)

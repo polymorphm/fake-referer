@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 
-assert unicode is not str
+
+assert str is not str
 assert str is bytes
 
-import itertools, base64, json, datetime, urlparse
+import itertools, base64, json, datetime, urllib.parse
 from tornado import ioloop, stack_context, gen
 from . import get_items, async_http_request_helper
 
@@ -59,7 +59,7 @@ def fake_referer_thread(site_iter, referer_iter,
                     )
         
         if verbose >= 1:
-            print u'%s (<- %s): opening...' % (site, referer)
+            print('%s (<- %s): opening...' % (site, referer))
         
         header_list = [
             ('Referer', referer),
@@ -77,16 +77,16 @@ def fake_referer_thread(site_iter, referer_iter,
             
         if exc is not None:
             if verbose >= 1:
-                print u'%s (<- %s): ERROR: %s' % (site, referer, exc[1])
+                print('%s (<- %s): ERROR: %s' % (site, referer, exc[1]))
             continue
             
         if response.code and response.code != 200:
             if verbose >= 1:
-                print u'%s (<- %s): WARN (code is %s)' % (site, referer, response.code)
+                print('%s (<- %s): WARN (code is %s)' % (site, referer, response.code))
             continue
         
         if verbose >= 1:
-            print u'%s (<- %s): PASS' % (site, referer)
+            print('%s (<- %s): PASS' % (site, referer))
     
     if on_finish is not None:
         on_finish()
@@ -101,7 +101,7 @@ def bulk_fake_referer(site_iter, referer_iter,
     if conc is None:
         conc = DEFAULT_CONC
     
-    wait_key_list = tuple(object() for x in xrange(conc))
+    wait_key_list = tuple(object() for x in range(conc))
     
     for wait_key in wait_key_list:
         fake_referer_thread(site_iter, referer_iter,
@@ -118,13 +118,13 @@ def fake_referer(cfg, on_finish=None):
     on_finish = stack_context.wrap(on_finish)
     
     if cfg.count == 'infinite':
-        site_iter = itertools.imap(
+        site_iter = map(
                 url_normalize,
                 get_items.get_random_infinite_items(cfg.site_items),
                 )
     elif cfg.count is not None:
         count = int(cfg.count)
-        site_iter = itertools.imap(
+        site_iter = map(
                 url_normalize,
                 itertools.islice(
                         get_items.get_random_infinite_items(cfg.site_items),
@@ -132,12 +132,12 @@ def fake_referer(cfg, on_finish=None):
                         ),
                 )
     else:
-        site_iter = itertools.imap(
+        site_iter = map(
                 url_normalize,
                 get_items.get_random_finite_items(cfg.site_items),
                 )
     
-    referer_iter = itertools.imap(
+    referer_iter = map(
             url_normalize,
             get_items.get_random_infinite_items(cfg.referer_items),
             )

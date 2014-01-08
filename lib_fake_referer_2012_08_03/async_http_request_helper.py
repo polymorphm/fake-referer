@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 
-assert unicode is not str
+
+assert str is not str
 assert str is bytes
 
-import urllib, urllib2, json
+import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse, json
 from .daemon_async import daemon_async
 
 DEFAULT_TIMEOUT = 20.0
@@ -33,7 +33,7 @@ class Response:
 def async_fetch(url, data=None, header_list=None, proxies=None,
         limit=None, timeout=None, use_json=None):
     if isinstance(data, dict):
-        data = urllib.urlencode(data)
+        data = urllib.parse.urlencode(data)
     if limit is None:
         limit = DEFAULT_LIMIT
     if timeout is None:
@@ -44,9 +44,9 @@ def async_fetch(url, data=None, header_list=None, proxies=None,
     build_opener_args = []
     if proxies is not None:
         build_opener_args.append(
-                urllib2.ProxyHandler(proxies=proxies))
+                urllib.request.ProxyHandler(proxies=proxies))
     
-    opener = urllib2.build_opener(*build_opener_args)
+    opener = urllib.request.build_opener(*build_opener_args)
     
     if header_list is not None:
         opener.addheaders = tuple(header_list)

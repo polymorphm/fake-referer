@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import absolute_import
 
-assert unicode is not str
+
+assert str is not str
 assert str is bytes
 
-import argparse, ConfigParser, sys, os.path, \
+import argparse, configparser, sys, os.path, \
         contextlib, signal, functools, threading
 from tornado import ioloop
 from . import fake_referer
@@ -51,7 +51,7 @@ def on_done(verbose=None):
         verbose = fake_referer.DEFAULT_VERBOSE
     
     if verbose >= 1:
-        print u'done!'
+        print('done!')
     
     ioloop.IOLoop.instance().stop()
 
@@ -61,7 +61,7 @@ def on_interrupt_sig(signum, frame, verbose=None):
     
     def loop_target():
         if verbose >= 1:
-            print u'interrupted!'
+            print('interrupted!')
         
         ioloop.IOLoop.instance().stop()
     
@@ -72,12 +72,12 @@ def on_interrupt_sig(signum, frame, verbose=None):
 
 def main():
     parser = argparse.ArgumentParser(
-            description=u'utility for making massive www-requests with fake referer.')
+            description='utility for making massive www-requests with fake referer.')
     parser.add_argument('cfg', metavar='CONFIG-FILE',
-            help=u'config file for task process')
+            help='config file for task process')
     
     args = parser.parse_args()
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(args.cfg)
     
     cfg = Config()
