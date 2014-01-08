@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8 -*-
 #
-# Copyright 2012 Andrej A Antonov <polymorphm@gmail.com>
+# Copyright 2012, 2014 Andrej A Antonov <polymorphm@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -15,12 +15,9 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
+assert str is not bytes
 
-
-assert str is not str
-assert str is bytes
-
-import itertools, base64, json, datetime, urllib.parse
+import itertools, datetime, urllib.parse
 from tornado import ioloop, stack_context, gen
 from . import get_items, async_http_request_helper
 
@@ -74,12 +71,12 @@ def fake_referer_thread(site_iter, referer_iter,
                 header_list=header_list,
                 limit=100,
                 ))[0]
-            
+        
         if exc is not None:
             if verbose >= 1:
                 print('%s (<- %s): ERROR: %s' % (site, referer, exc[1]))
             continue
-            
+        
         if response.code and response.code != 200:
             if verbose >= 1:
                 print('%s (<- %s): WARN (code is %s)' % (site, referer, response.code))

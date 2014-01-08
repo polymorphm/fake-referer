@@ -1,6 +1,6 @@
 # -*- mode: python; coding: utf-8 -*-
 #
-# Copyright 2012 Andrej A Antonov <polymorphm@gmail.com>
+# Copyright 2012, 2014 Andrej A Antonov <polymorphm@gmail.com>
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Lesser General Public License as published by
@@ -15,10 +15,7 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
-
-
-assert str is not str
-assert str is bytes
+assert str is not bytes
 
 import argparse, configparser, sys, os.path, \
         contextlib, signal, functools, threading
@@ -38,13 +35,6 @@ def set_signal_listener(signalnum, handler):
         yield
     finally:
         signal.signal(signalnum, orig_handler)
-
-def sig_lst_thread_join(thread):
-    # if ``timeout`` not setted (at least any value), then ``join()`` has behavior bug.
-    #       but only on Python2, not Python3
-    
-    while thread.is_alive():
-        thread.join(timeout=120.0)
 
 def on_done(verbose=None):
     if verbose is None:
@@ -78,31 +68,26 @@ def main():
     
     args = parser.parse_args()
     config = configparser.ConfigParser()
-    config.read(args.cfg)
+    config.read(args.cfg, encoding='utf-8')
     
     cfg = Config()
     
     cfg_section = 'fake-referer'
-    cfg_dir = os.path.dirname(args.cfg).decode(sys.getfilesystemencoding())
+    cfg_dir = os.path.dirname(args.cfg)
     
     cfg.site_items = os.path.join(
                 cfg_dir,
-                config.get(cfg_section, 'site-items').decode('utf-8', 'replace')
+                config.get(cfg_section, 'site-items')
             ) if config.has_option(cfg_section, 'site-items') else None
     cfg.referer_items = os.path.join(
                 cfg_dir,
-                config.get(cfg_section, 'referer-items').decode('utf-8', 'replace')
+                config.get(cfg_section, 'referer-items')
             ) if config.has_option(cfg_section, 'referer-items') else None
-    cfg.count = config.get(cfg_section, 'count').decode('utf-8', 'replace') \
-            if config.has_option(cfg_section, 'count') else None
-    cfg.conc = int(config.get(cfg_section, 'conc').decode('utf-8', 'replace')) \
-            if config.has_option(cfg_section, 'conc') else None
-    cfg.delay = float(config.get(cfg_section, 'delay').decode('utf-8', 'replace')) \
-            if config.has_option(cfg_section, 'delay') else None
-    cfg.agent_name = config.get(cfg_section, 'agent-name').decode('utf-8', 'replace') \
-            if config.has_option(cfg_section, 'agent-name') else None
-    cfg.verbose = int(config.get(cfg_section, 'verbose').decode('utf-8', 'replace')) \
-            if config.has_option(cfg_section, 'verbose') else None
+    cfg.count = config.get(cfg_section, 'count', fallback=None)
+    cfg.conc = config.getint(cfg_section, 'conc', fallback=None)
+    cfg.delay = config.getfloat(cfg_section, 'delay', fallback=None)
+    cfg.agent_name = config.get(cfg_section, 'agent-name', fallback=None)
+    cfg.verbose = config.getint(cfg_section, 'verbose', fallback=None)
     
     if cfg.site_items is None:
         raise UserError('cfg.site_items is None')
@@ -121,5 +106,4 @@ def main():
         loop_thr = threading.Thread(target=io_loop.start)
         
         loop_thr.start()
-        
-        sig_lst_thread_join(loop_thr)
+        loop_thr.join()
