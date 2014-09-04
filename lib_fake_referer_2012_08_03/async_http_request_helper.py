@@ -22,8 +22,9 @@
 
 assert str is not bytes
 
-import urllib.request, urllib.parse, urllib.error, urllib.request, urllib.error, urllib.parse, json
-from .daemon_async import daemon_async
+from urllib import request as url_request
+import asyncio
+import threading
 
 DEFAULT_TIMEOUT = 20.0
 DEFAULT_LIMIT = 10000000
@@ -31,35 +32,39 @@ DEFAULT_LIMIT = 10000000
 class Response:
     pass
 
-@daemon_async
-def async_fetch(url, data=None, header_list=None, proxies=None,
-        limit=None, timeout=None, use_json=None):
-    if isinstance(data, dict):
-        data = urllib.parse.urlencode(data)
+def async_fetch(req, timeout=None, limit=None, loop=None):
+    assert loop is not None
+    assert isinstance(req, url_request.Request)
+    
     if limit is None:
         limit = DEFAULT_LIMIT
     if timeout is None:
         timeout = DEFAULT_TIMEOUT
-    if use_json is None:
-        use_json = False
     
-    build_opener_args = []
-    if proxies is not None:
-        build_opener_args.append(
-                urllib.request.ProxyHandler(proxies=proxies))
+    future = asyncio.Future(loop=loop)
     
-    opener = urllib.request.build_opener(*build_opener_args)
+    def set_result(result):
+        if not future.cancelled():
+            future.set_result(result)
     
-    if header_list is not None:
-        opener.addheaders = tuple(header_list)
+    def set_exception(e):
+        if not future.cancelled():
+            future.set_exception(e)
     
-    f = opener.open(url, data=data, timeout=timeout)
+    def async_fetch_thread_func():
+        try:
+            opener = url_request.build_opener()
+            opener_res = opener.open(req, timeout=timeout)
+            
+            response = Response()
+            response.code = opener_res.getcode()
+            response.url = opener_res.geturl()
+            response.body = opener_res.read(limit)
+        except Exception as e:
+            loop.call_soon_threadsafe(set_exception, e)
+        else:
+            loop.call_soon_threadsafe(set_result, response)
     
-    response = Response()
-    response.code = f.getcode()
-    response.body = f.read(limit)
+    threading.Thread(target=async_fetch_thread_func, daemon=True).start()
     
-    if use_json:
-        response = json.loads(response.body)
-    
-    return response
+    return future

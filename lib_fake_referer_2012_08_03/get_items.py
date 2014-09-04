@@ -22,7 +22,7 @@
 
 assert str is not bytes
 
-import sys, os, os.path, itertools, random
+import os, os.path, itertools, random
 
 class NotFoundError(IOError):
     pass

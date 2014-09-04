@@ -22,9 +22,8 @@
 
 assert str is not bytes
 
-import argparse, configparser, sys, os.path, \
-        contextlib, signal, functools, threading
-from tornado import ioloop
+import argparse, configparser, os.path, signal
+import asyncio
 from . import fake_referer
 
 class UserError(Exception):
@@ -32,38 +31,6 @@ class UserError(Exception):
 
 class Config(object):
     pass
-
-@contextlib.contextmanager
-def set_signal_listener(signalnum, handler):
-    orig_handler = signal.signal(signalnum, handler)
-    try:
-        yield
-    finally:
-        signal.signal(signalnum, orig_handler)
-
-def on_done(verbose=None):
-    if verbose is None:
-        verbose = fake_referer.DEFAULT_VERBOSE
-    
-    if verbose >= 1:
-        print('done!')
-    
-    ioloop.IOLoop.instance().stop()
-
-def on_interrupt_sig(signum, frame, verbose=None):
-    if verbose is None:
-        verbose = fake_referer.DEFAULT_VERBOSE
-    
-    def loop_target():
-        if verbose >= 1:
-            print('interrupted!')
-        
-        ioloop.IOLoop.instance().stop()
-    
-    def sig_target():
-        ioloop.IOLoop.instance().add_callback(loop_target)
-    
-    threading.Thread(target=sig_target).start()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -99,16 +66,30 @@ def main():
     if cfg.referer_items is None:
         raise UserError('cfg.referer_items is None')
     
-    io_loop = ioloop.IOLoop.instance()
+    loop = asyncio.get_event_loop()
     
-    io_loop.add_callback(functools.partial(fake_referer.fake_referer, cfg,
-            on_finish=functools.partial(on_done, verbose=cfg.verbose)))
+    fake_referer_future = fake_referer.fake_referer(cfg, loop=loop)
+    assert isinstance(fake_referer_future, asyncio.Future)
     
-    with set_signal_listener(signal.SIGINT, functools.partial(
-                    on_interrupt_sig, verbose=cfg.verbose)), \
-            set_signal_listener(signal.SIGTERM, functools.partial(
-                    on_interrupt_sig, verbose=cfg.verbose)):
-        loop_thr = threading.Thread(target=io_loop.start)
+    def shutdown_handler():
+        fake_referer_future.cancel()
+    
+    try:
+        loop.add_signal_handler(signal.SIGINT, shutdown_handler)
+    except NotImplementedError:
+        pass
+    try:
+        loop.add_signal_handler(signal.SIGTERM, shutdown_handler)
+    except NotImplementedError:
+        pass
+    
+    try:
+        loop.run_until_complete(fake_referer_future)
+    except asyncio.CancelledError:
+        if cfg.verbose is not None and cfg.verbose >= 1:
+            print('cancelled!')
+    else:
+        fake_referer_future.result()
         
-        loop_thr.start()
-        loop_thr.join()
+        if cfg.verbose is not None and cfg.verbose >= 1:
+            print('done!')

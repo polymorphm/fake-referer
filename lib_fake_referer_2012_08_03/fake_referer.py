@@ -22,106 +22,116 @@
 
 assert str is not bytes
 
-import itertools, datetime, urllib.parse
-from tornado import ioloop, stack_context, gen
+import itertools, datetime
+from urllib import request as url_request
+import asyncio
 from . import get_items, async_http_request_helper
 
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
-DEFAULT_VERBOSE = 0
 
 def url_normalize(url):
     if url.startswith('http:') or url.startswith('https:'):
         return url
     
     if url.startswith('//'):
-        return 'http:%s' % url
+        return 'http:{}'.format(url)
     
-    return 'http://%s' % url
+    return 'http://{}'.format(url)
 
-@gen.coroutine
+@asyncio.coroutine
 def fake_referer_thread(site_iter, referer_iter,
-            delay=None, agent_name=None, verbose=None, on_finish=None):
+            delay=None, agent_name=None, verbose=None, loop=None):
+    assert loop is not None
+    
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
-    on_finish = stack_context.wrap(on_finish)
     
     if delay is None:
         delay = DEFAULT_DELAY
-    if verbose is None:
-        verbose = DEFAULT_VERBOSE
     
     for site in site_iter:
         referer = next(referer_iter)
         
-        if delay:
-            delay_wait_key = object()
-            ioloop.IOLoop.instance().add_timeout(
-                    datetime.timedelta(seconds=delay),
-                    callback=(yield gen.Callback(delay_wait_key)),
-                    )
+        delay_future = asyncio.async(asyncio.sleep(delay, loop=loop), loop=loop)
         
-        if verbose >= 1:
-            print('%s (<- %s): opening...' % (site, referer))
+        if verbose is not None and verbose >= 1:
+            print('{} (<- {}): opening...'.format(site, referer))
         
-        header_list = [
-            ('Referer', referer),
-        ]
+        headers = {
+            'Referer': referer,
+            }
         
         if agent_name is not None:
-            header_list.append(('User-agent', agent_name))
+            headers['User-Agent'] = agent_name
         
-        response, exc = (yield gen.Task(
-                async_http_request_helper.async_fetch,
-                site,
-                header_list=header_list,
+        async_fetch_future = async_http_request_helper.async_fetch(
+                url_request.Request(site, headers=headers),
                 limit=100,
-                ))[0]
+                loop=loop,
+                )
         
-        if exc is not None:
-            if verbose >= 1:
-                print('%s (<- %s): ERROR: %s' % (site, referer, exc[1]))
+        yield from asyncio.wait((async_fetch_future,), loop=loop)
+        
+        if not async_fetch_future.cancelled() and async_fetch_future.exception():
+            if verbose is not None and verbose >= 1:
+                print('{} (<- {}): ERROR: {} {}'.format(
+                        site,
+                        referer,
+                        type(async_fetch_future.exception()),
+                        str(async_fetch_future.exception())),
+                        )
+            
+            yield from asyncio.wait((delay_future,), loop=loop)
+            delay_future.result()
+            
             continue
         
-        if response.code and response.code != 200:
-            if verbose >= 1:
-                print('%s (<- %s): WARN (code is %s)' % (site, referer, response.code))
-            continue
+        response = async_fetch_future.result()
         
-        if verbose >= 1:
-            print('%s (<- %s): PASS' % (site, referer))
+        if verbose is not None and verbose >= 1:
+            print('{} (<- {}): PASS (code is {})'.format(
+                    site,
+                    referer,
+                    response.code,
+                    ))
         
-        if delay:
-            yield gen.Wait(delay_wait_key)
-    
-    if on_finish is not None:
-        on_finish()
+        yield from asyncio.wait((delay_future,), loop=loop)
+        delay_future.result()
 
-@gen.engine
 def bulk_fake_referer(site_iter, referer_iter,
-            conc=None, delay=None, agent_name=None, verbose=None, on_finish=None):
+            conc=None, delay=None, agent_name=None, verbose=None,
+            loop=None):
+    assert loop is not None
+    
     site_iter = iter(site_iter)
     referer_iter = iter(referer_iter)
-    on_finish = stack_context.wrap(on_finish)
     
     if conc is None:
         conc = DEFAULT_CONC
     
-    wait_key_list = tuple(object() for x in range(conc))
+    future_list = tuple(
+            asyncio.async(
+                    fake_referer_thread(
+                            site_iter,
+                            referer_iter,
+                            delay=delay,
+                            agent_name=agent_name,
+                            verbose=verbose,
+                            loop=loop,
+                            ),
+                    loop=loop,
+                    )
+            for x in range(conc)
+            )
     
-    for wait_key in wait_key_list:
-        fake_referer_thread(site_iter, referer_iter,
-                delay=delay, agent_name=agent_name, verbose=verbose,
-                on_finish=(yield gen.Callback(wait_key)))
+    wait_coro = asyncio.wait(future_list, loop=loop)
+    wait_future = asyncio.async(wait_coro, loop=loop)
     
-    for wait_key in wait_key_list:
-        yield gen.Wait(wait_key)
-    
-    if on_finish is not None:
-        on_finish()
+    return wait_future
 
-def fake_referer(cfg, on_finish=None):
-    on_finish = stack_context.wrap(on_finish)
+def fake_referer(cfg, loop=None):
+    assert loop is not None
     
     if cfg.count == 'infinite':
         site_iter = map(
@@ -148,12 +158,12 @@ def fake_referer(cfg, on_finish=None):
             get_items.get_random_infinite_items(cfg.referer_items),
             )
     
-    bulk_fake_referer(
+    return bulk_fake_referer(
             site_iter,
             referer_iter,
             conc=cfg.conc,
             delay=cfg.delay,
             agent_name=cfg.agent_name,
             verbose=cfg.verbose,
-            on_finish=on_finish,
+            loop=loop,
             )
