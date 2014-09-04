@@ -6,4 +6,4 @@ fake-referer
 Status
 ------
 
-Developer version (git master branch).
+Beta version release (fake-referer-0.5.1).
