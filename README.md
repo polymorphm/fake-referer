@@ -6,4 +6,4 @@ fake-referer
 Status
 ------
 
-Beta version release (fake-referer-0.5.1).
+Beta version release (fake-referer-0.5.2).
