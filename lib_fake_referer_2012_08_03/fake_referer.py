@@ -25,7 +25,7 @@ assert str is not bytes
 import itertools, datetime
 from urllib import request as url_request
 import asyncio
-from . import get_items, async_http_request_helper
+from . import get_items, async_fetch
 
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
@@ -65,7 +65,7 @@ def fake_referer_thread(site_iter, referer_iter,
         if agent_name is not None:
             headers['User-Agent'] = agent_name
         
-        async_fetch_future = async_http_request_helper.async_fetch(
+        async_fetch_future = async_fetch.async_fetch(
                 url_request.Request(site, headers=headers),
                 limit=100,
                 loop=loop,
