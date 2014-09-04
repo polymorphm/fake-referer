@@ -58,7 +58,7 @@ def main():
     cfg.count = config.get(cfg_section, 'count', fallback=None)
     cfg.conc = config.getint(cfg_section, 'conc', fallback=None)
     cfg.delay = config.getfloat(cfg_section, 'delay', fallback=None)
-    cfg.agent_name = config.get(cfg_section, 'agent-name', fallback=None)
+    cfg.user_agent = config.get(cfg_section, 'user-agent', fallback=None)
     cfg.verbose = config.getint(cfg_section, 'verbose', fallback=None)
     
     if cfg.site_items is None:

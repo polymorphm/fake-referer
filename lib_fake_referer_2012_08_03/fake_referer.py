@@ -24,8 +24,9 @@ assert str is not bytes
 
 import itertools, datetime
 from urllib import request as url_request
+import random
 import asyncio
-from . import get_items, async_fetch
+from . import get_items, get_useragent, async_fetch
 
 DEFAULT_CONC = 10
 DEFAULT_DELAY = 0.0
@@ -41,7 +42,7 @@ def url_normalize(url):
 
 @asyncio.coroutine
 def fake_referer_thread(site_iter, referer_iter,
-            delay=None, agent_name=None, verbose=None, loop=None):
+            delay=None, get_user_agent=None, verbose=None, loop=None):
     assert loop is not None
     
     site_iter = iter(site_iter)
@@ -62,8 +63,9 @@ def fake_referer_thread(site_iter, referer_iter,
             'Referer': referer,
             }
         
-        if agent_name is not None:
-            headers['User-Agent'] = agent_name
+        if get_user_agent is not None:
+            user_agent = yield from get_user_agent()
+            headers['User-Agent'] = user_agent
         
         async_fetch_future = async_fetch.async_fetch(
                 url_request.Request(site, headers=headers),
@@ -100,7 +102,7 @@ def fake_referer_thread(site_iter, referer_iter,
         delay_future.result()
 
 def bulk_fake_referer(site_iter, referer_iter,
-            conc=None, delay=None, agent_name=None, verbose=None,
+            conc=None, delay=None, get_user_agent=None, verbose=None,
             loop=None):
     assert loop is not None
     
@@ -116,7 +118,7 @@ def bulk_fake_referer(site_iter, referer_iter,
                             site_iter,
                             referer_iter,
                             delay=delay,
-                            agent_name=agent_name,
+                            get_user_agent=get_user_agent,
                             verbose=verbose,
                             loop=loop,
                             ),
@@ -158,12 +160,34 @@ def fake_referer(cfg, loop=None):
             get_items.get_random_infinite_items(cfg.referer_items),
             )
     
+    if cfg.user_agent is not None:
+        @asyncio.coroutine
+        def get_user_agent():
+            return cfg.user_agent
+    else:
+        useragent_list = None
+        useragent_list_lock = asyncio.Lock()
+        
+        @asyncio.coroutine
+        def get_user_agent():
+            nonlocal useragent_list
+            
+            if useragent_list is None:
+                with (yield from useragent_list_lock):
+                    if useragent_list is None:
+                        useragent_list = yield from loop.run_in_executor(
+                                None,
+                                get_useragent.get_useragent_list,
+                                )
+            
+            return random.choice(useragent_list)
+    
     return bulk_fake_referer(
             site_iter,
             referer_iter,
             conc=cfg.conc,
             delay=cfg.delay,
-            agent_name=cfg.agent_name,
+            get_user_agent=get_user_agent,
             verbose=cfg.verbose,
             loop=loop,
             )
