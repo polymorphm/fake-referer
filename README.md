@@ -6,4 +6,4 @@ fake-referer
 Status
 ------
 
-The current status of the project (this branch) is `Development`.
+Developer version (git master branch).
